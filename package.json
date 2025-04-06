@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "discord.js": "^14.18.0"
+  },
+  "name": "azalee",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
