@@ -8,6 +8,5 @@ export default {
 
   async execute(interaction) {
     interaction.reply({ content: '🏓 Pong!', flags: "Ephemeral" })
-    throw new Error("testing")
   },
 } as Command
