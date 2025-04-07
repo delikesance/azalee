@@ -19,11 +19,15 @@ const messageCreateEvent: Event = {
     messageCooldowns.set(userId, now);
 
     const xp = 10;
-    await prisma.user.upsert({
-      where: { userId },
-      create: { userId, xp, level: 1 },
-      update: { xp: { increment: xp } },
-    });
+    try {
+      await prisma.user.upsert({
+        where: { userId },
+        create: { userId, xp, level: 1 },
+        update: { xp: { increment: xp } },
+      });
+    } catch (error) {
+      console.error(`Failed to update XP for user ${userId}:`, error);
+    }
   },
 };
 

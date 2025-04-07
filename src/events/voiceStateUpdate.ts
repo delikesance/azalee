@@ -42,7 +42,7 @@ const voiceStateUpdateEvent: Event = {
     if (oldState.channel?.id === newState.channel?.id &&
       (oldState.mute !== newState.mute || oldState.deaf !== newState.deaf)) {
       activeVoiceUsers.set(user.id, {
-        channelId: newState.channel!.id,
+        channelId: newState.channel?.id || "",
         lastUpdate: now,
         isMuted: newState.mute || false,
         isDeafened: newState.deaf || false,

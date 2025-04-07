@@ -1,6 +1,10 @@
 import { prisma } from "./prisma";
 import { XP_RATES } from "./config";
 
+const MAX_MINUTES = 60; // Cap for XP calculation
+const LEVEL_MULTIPLIER = XP_RATES.LEVEL_MULTIPLIER;
+const CLEANUP_INTERVAL = 3600000; // 1 hour in milliseconds
+
 interface VoiceSession {
   channelId: string;
   lastUpdate: Date;
@@ -9,6 +13,16 @@ interface VoiceSession {
 }
 
 export const activeVoiceUsers = new Map<string, VoiceSession>();
+
+// Periodically clean up inactive entries
+setInterval(() => {
+  const now = Date.now();
+  activeVoiceUsers.forEach((session, userId) => {
+    if (now - session.lastUpdate.getTime() > CLEANUP_INTERVAL) {
+      activeVoiceUsers.delete(userId);
+    }
+  });
+}, CLEANUP_INTERVAL);
 
 // Load active sessions on startup
 async function loadActiveSessions() {
@@ -30,10 +44,43 @@ async function loadActiveSessions() {
 loadActiveSessions().catch(console.error);
 
 function calculateXP(minutes: number, isMuted: boolean, isDeafened: boolean): number {
-  const elapsedMinutes = Math.min(minutes, 60); // Cap at 1 hour
+  const elapsedMinutes = Math.min(minutes, MAX_MINUTES);
   if (isDeafened) return Math.floor(elapsedMinutes * XP_RATES.DEAFENED);
   if (isMuted) return Math.floor(elapsedMinutes * XP_RATES.MUTED);
   return Math.floor(elapsedMinutes * XP_RATES.ACTIVE);
+}
+
+async function updateVoiceSession(userId: string, isMuted: boolean, isDeafened: boolean) {
+  const session = activeVoiceUsers.get(userId);
+  if (!session) return;
+
+  try {
+    await prisma.voiceSession.upsert({
+      where: { userId },
+      create: {
+        userId,
+        channelId: session.channelId,
+        lastUpdate: new Date(),
+        isMuted,
+        isDeafened,
+      },
+      update: {
+        lastUpdate: new Date(),
+        isMuted,
+        isDeafened,
+      },
+    });
+  } catch (error) {
+    console.error(`Failed to update voice session for user ${userId}:`, error);
+  }
+}
+
+async function cleanupVoiceSession(userId: string) {
+  try {
+    await prisma.voiceSession.deleteMany({ where: { userId } });
+  } catch (error) {
+    console.error(`Failed to clean up voice session for user ${userId}:`, error);
+  }
 }
 
 export async function handleVoiceXP(userId: string, minutes: number, isMuted: boolean, isDeafened: boolean) {
@@ -49,42 +96,22 @@ export async function handleVoiceXP(userId: string, minutes: number, isMuted: bo
         select: { xp: true, level: true },
       });
 
-      const newLevel = Math.floor(0.1 * Math.sqrt(user.xp));
+      const newLevel = Math.floor(LEVEL_MULTIPLIER * Math.sqrt(user.xp));
       if (newLevel > user.level) {
         await tx.user.update({
           where: { userId },
-          data: { level: newLevel, xp: user.xp - Math.pow((user.level + 1) / 0.1, 2) },
+          data: { level: newLevel, xp: user.xp - Math.pow((user.level + 1) / LEVEL_MULTIPLIER, 2) },
         });
       }
 
-      if (activeVoiceUsers.has(userId)) {
-        await tx.voiceSession.upsert({
-          where: { userId },
-          create: {
-            userId,
-            channelId: activeVoiceUsers.get(userId)!.channelId,
-            lastUpdate: new Date(),
-            isMuted,
-            isDeafened,
-          },
-          update: {
-            lastUpdate: new Date(),
-            isMuted,
-            isDeafened,
-          },
-        });
-      }
+      await updateVoiceSession(userId, isMuted, isDeafened);
     });
   } catch (error) {
     console.error(`Failed to handle voice XP for user ${userId}:`, error);
   }
 
   if (!activeVoiceUsers.has(userId)) {
-    try {
-      await prisma.voiceSession.deleteMany({ where: { userId } });
-    } catch (error) {
-      console.error(`Failed to clean up voice session for user ${userId}:`, error);
-    }
+    await cleanupVoiceSession(userId);
   }
 }
 
