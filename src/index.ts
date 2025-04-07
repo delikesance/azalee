@@ -1,74 +1,63 @@
 import { Client, Collection, GatewayIntentBits } from "discord.js";
 import { readdirSync } from "fs";
 import path from "path";
+import { ENV } from "./config";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
 const commands = new Collection<string, any>();
 
-async function loadCommands() {
-  const commandFiles = readdirSync(path.join(__dirname, "commands"));
+async function loadEvents() {
+  const eventFiles = readdirSync(path.join(__dirname, "events")).filter((file) => file.endsWith(".ts"));
 
-  const loadPromises = commandFiles.map(async (file) => {
-    const commandPath = path.join(__dirname, "commands", file);
-    return import(commandPath)
-      .then((module) => {
-        const command = module.default;
-        if (!command || !command.data || !command.data.name) {
-          console.error(`Invalid command file: ${file}`);
-          return null; // Skip invalid commands
-        }
-        commands.set(command.data.name, command);
-      })
-      .catch((err) => {
-        console.error(`Failed to load command file: ${file}`, err);
-      });
-  });
-
-  await Promise.all(loadPromises); // Wait for all commands to be loaded
+  for (const file of eventFiles) {
+    try {
+      const event = await import(path.join(__dirname, "events", file));
+      if (event.default.once) {
+        client.once(event.default.name, (...args) => event.default.execute(...args, client));
+      } else {
+        client.on(event.default.name, (...args) => event.default.execute(...args, client));
+      }
+    } catch (error) {
+      console.error(`Failed to load event file ${file}:`, error);
+    }
+  }
 }
 
-async function refreshCommands() {
-  const commandDatas = Array.from(commands.values()).map((c) => c.data);
+async function loadCommands() {
+  const commandFiles = readdirSync(path.join(__dirname, "commands")).filter((file) => file.endsWith(".ts"));
 
-  if (Bun.env.ENV === "production") {
-    client.application?.commands.set(commandDatas).catch((err) => {
-      console.error("Failed to refresh global commands:", err);
-    });
-  } else {
-    client.guilds.fetch(Bun.env.GUILD_ID!)
-      .then((devGuild) => devGuild.commands.set(commandDatas))
-      .catch((err) => {
-        console.error("Failed to refresh guild-specific commands:", err);
-      });
+  for (const file of commandFiles) {
+    try {
+      const command = await import(path.join(__dirname, "commands", file));
+      if (command.default && command.default.data && command.default.data.name) {
+        commands.set(command.default.data.name, command.default);
+      } else {
+        console.error(`Invalid command file: ${file}`);
+      }
+    } catch (error) {
+      console.error(`Failed to load command file ${file}:`, error);
+    }
   }
 }
 
 async function bootstrap() {
-  await loadCommands();
-
-  client.once("ready", () => {
-    console.log(`Connected as ${client.user?.username}`);
-    refreshCommands(); // No need to await here; errors are handled internally
-  });
-
-  client.on("interactionCreate", (interaction) => {
-    if (!interaction.isCommand()) return;
-
-    const command = commands.get(interaction.commandName);
-    if (!command) {
-      console.warn(`Command not found: ${interaction.commandName}`);
-      return;
-    }
-
-    command.execute(interaction).catch((err: Error) => {
-      console.error(`Error executing command: ${interaction.commandName}`, err);
-    });
-  });
-
-  client.login(Bun.env.TOKEN).catch((err) => {
-    console.error("Failed to log in:", err);
-  });
+  try {
+    await loadEvents();
+    await loadCommands();
+    await client.login(ENV.TOKEN);
+    console.log("Bot is running!");
+  } catch (error) {
+    console.error("Failed to bootstrap the bot:", error);
+  }
 }
 
-bootstrap().catch((err) => console.error("Bootstrap error:", err));
+bootstrap();
 

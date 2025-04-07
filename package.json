@@ -1,12 +1,14 @@
 {
   "dependencies": {
+    "@prisma/client": "6.5.0",
     "discord.js": "^14.18.0"
   },
   "name": "azalee",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "prisma": "^6.5.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
