@@ -34,8 +34,8 @@ export default {
         return interaction.reply({ content: "Aucun profil trouvé. Commencez à interagir pour gagner de l'XP !", ephemeral: true });
       }
 
-      const calculatedLevel = user.level || 1;
-      const displayXP = user.xp || 0;
+      const calculatedLevel = user.level ?? 1;
+      const displayXP = user.xp ?? 0;
       const levelUpXP = Math.pow((calculatedLevel + 1) / 0.1, 2);
 
       interaction.reply({

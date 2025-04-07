@@ -4,6 +4,15 @@ import type { Event } from "../types/event.type";
 
 const messageCooldowns = new Map<string, number>();
 
+setInterval(() => {
+  const now = Date.now();
+  messageCooldowns.forEach((timestamp, userId) => {
+    if (now - timestamp > 30000) { // Cleanup after 30 seconds
+      messageCooldowns.delete(userId);
+    }
+  });
+}, 30000);
+
 const messageCreateEvent: Event = {
   name: "messageCreate",
   once: false,

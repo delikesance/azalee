@@ -2,6 +2,7 @@ import { Client, Collection, GatewayIntentBits } from "discord.js";
 import { readdirSync } from "fs";
 import path from "path";
 import { ENV } from "./config";
+import type { Command } from "./types/command.type";
 
 const client = new Client({
   intents: [
@@ -12,7 +13,7 @@ const client = new Client({
   ],
 });
 
-const commands = new Collection<string, any>();
+const commands = new Collection<string, Command>();
 
 async function loadEvents() {
   const eventFiles = readdirSync(path.join(__dirname, "events")).filter((file) => file.endsWith(".ts"));

@@ -1,13 +1,14 @@
 import { VoiceState } from "discord.js";
 import { activeVoiceUsers, handleVoiceXP } from "../voice";
 import { prisma } from "../prisma";
+import { CHANNEL_IDS } from "../config";
 import type { Event } from "../types/event.type";
 
 const voiceStateUpdateEvent: Event = {
   name: "voiceStateUpdate",
   once: false,
   async execute(oldState: VoiceState, newState: VoiceState) {
-    const personalCategoryId = "1356040928355160159";
+    const personalCategoryId = CHANNEL_IDS.PERSONAL_CATEGORY;
     const user = newState.member?.user || oldState.member?.user;
     if (!user?.id) return;
 

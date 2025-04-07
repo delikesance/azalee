@@ -14,8 +14,7 @@ interface VoiceSession {
 
 export const activeVoiceUsers = new Map<string, VoiceSession>();
 
-// Periodically clean up inactive entries
-setInterval(() => {
+const cleanupIntervalId = setInterval(() => {
   const now = Date.now();
   activeVoiceUsers.forEach((session, userId) => {
     if (now - session.lastUpdate.getTime() > CLEANUP_INTERVAL) {
@@ -24,6 +23,11 @@ setInterval(() => {
     }
   });
 }, CLEANUP_INTERVAL);
+
+// Add this function to clear the interval when needed
+export function stopCleanupInterval() {
+  clearInterval(cleanupIntervalId);
+}
 
 // Load active sessions on startup
 async function loadActiveSessions() {
@@ -112,11 +116,7 @@ export async function handleVoiceXP(userId: string, minutes: number, isMuted: bo
       await updateVoiceSession(userId, isMuted, isDeafened);
     });
   } catch (error) {
-    console.error(`Failed to handle voice XP for user ${userId}:`, error);
-  }
-
-  if (!activeVoiceUsers.has(userId)) {
-    await cleanupVoiceSession(userId);
+    console.error(`Failed to handle voice XP for user ${userId}:`, error);  }  if (!activeVoiceUsers.has(userId)) {    await cleanupVoiceSession(userId);
   }
 }
 
