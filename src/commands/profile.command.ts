@@ -11,16 +11,17 @@ export default {
   async execute(interaction) {
     const userId = interaction.user.id;
 
-    // Calcul de l'XP en temps réel
+    // Calculate real-time XP
     const tracker = activeVoiceUsers.get(userId);
     if (tracker) {
       const now = new Date();
       const minutes = (now.getTime() - tracker.lastUpdate.getTime()) / 60000;
       try {
         await handleVoiceXP(userId, minutes, tracker.isMuted, tracker.isDeafened);
-        tracker.lastUpdate = now; // Réinitialise le timer
+        tracker.lastUpdate = now; // Reset the timer
       } catch (error) {
         console.error(`Failed to handle voice XP for user ${userId}:`, error);
+        return interaction.reply({ content: "Une erreur est survenue lors de la mise à jour de votre XP.", ephemeral: true });
       }
     }
 
@@ -29,16 +30,21 @@ export default {
         where: { userId }
       });
 
-      const calculatedLevel = user?.level || 1;
-      const displayXP = user?.xp || 0;
+      if (!user) {
+        return interaction.reply({ content: "Aucun profil trouvé. Commencez à interagir pour gagner de l'XP !", ephemeral: true });
+      }
+
+      const calculatedLevel = user.level || 1;
+      const displayXP = user.xp || 0;
       const levelUpXP = Math.pow((calculatedLevel + 1) / 0.1, 2);
 
       interaction.reply({
         content: `Niveau ${calculatedLevel} | XP: ${displayXP}/${levelUpXP}`,
-        flags: "Ephemeral"
+        ephemeral: true
       });
     } catch (error) {
       console.error(`Failed to fetch profile for user ${userId}:`, error);
+      interaction.reply({ content: "Une erreur est survenue lors de la récupération de votre profil.", ephemeral: true });
     }
   }
 } as Command;

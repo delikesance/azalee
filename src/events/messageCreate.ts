@@ -8,7 +8,7 @@ const messageCreateEvent: Event = {
   name: "messageCreate",
   once: false,
   async execute(message: Message) {
-    if (message.author.bot || message.content.length < 10) return;
+    if (message.author.bot || message.content.trim().length < 10) return;
 
     const userId = message.author.id;
     const now = Date.now();
@@ -25,6 +25,7 @@ const messageCreateEvent: Event = {
         create: { userId, xp, level: 1 },
         update: { xp: { increment: xp } },
       });
+      console.log(`XP updated for user ${userId}`);
     } catch (error) {
       console.error(`Failed to update XP for user ${userId}:`, error);
     }
