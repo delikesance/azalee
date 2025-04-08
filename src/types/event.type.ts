@@ -1,7 +1,7 @@
-import type { ClientEvents } from "discord.js";
+import { type ClientEvents } from 'discord.js';
 
-export type Event = {
-  name: keyof ClientEvents; // Use Discord.js event names for auto-completion
-  once: boolean;
-  execute: (...args: any[]) => Promise<void> | void;
+export type Event<K extends keyof ClientEvents = keyof ClientEvents> = {
+    name: K;
+    once: boolean;
+    execute: (...args: ClientEvents[K]) => Promise<void>;
 };

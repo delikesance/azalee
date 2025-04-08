@@ -1,55 +1,41 @@
-import { VoiceState } from "discord.js";
-import { activeVoiceUsers, handleVoiceXP } from "../voice";
+import type { VoiceBasedChannel } from "discord.js";
 import { prisma } from "../prisma";
-import { CHANNEL_IDS } from "../config";
 import type { Event } from "../types/event.type";
+import { cancelChannelDeletion, scheduleChannelDeletion } from "../utils/temporaryVoiceChannel.util";
 
-const voiceStateUpdateEvent: Event = {
-  name: "voiceStateUpdate",
-  once: false,
-  async execute(oldState: VoiceState, newState: VoiceState) {
-    const personalCategoryId = CHANNEL_IDS.PERSONAL_CATEGORY;
-    const user = newState.member?.user || oldState.member?.user;
-    if (!user?.id) return;
+export default {
+    name: "voiceStateUpdate",
+    once: false,
 
-    const now = new Date();
-    const tracker = activeVoiceUsers.get(user.id);
+    async execute(oldState, newState) {
+        const channel = oldState.channel ?? newState.channel;
+        const channelId = channel?.id;
 
-    if (tracker) {
-      const minutes = (now.getTime() - tracker.lastUpdate.getTime()) / 60000;
-      try {
-        await handleVoiceXP(user.id, minutes, tracker.isMuted, tracker.isDeafened);
-      } catch (error) {
-        console.error(`Failed to handle voice XP for user ${user.id}:`, error);
-      }
-    }
+        if (!channelId) return;
 
-    if (newState.channel?.parentId === personalCategoryId) {
-      activeVoiceUsers.set(user.id, {
-        channelId: newState.channel.id,
-        lastUpdate: now,
-        isMuted: newState.mute || false,
-        isDeafened: newState.deaf || false,
-      });
-    } else if (!newState.channel && activeVoiceUsers.has(user.id)) {
-      try {
-        await prisma.voiceSession.deleteMany({ where: { userId: user.id } });
-      } catch (error) {
-        console.error(`Failed to delete voice session for user ${user.id}:`, error);
-      }
-      activeVoiceUsers.delete(user.id);
-    }
+        const isJoiningChannel = !oldState.channel && newState.channel;
+        const isLeavingChannel = oldState.channel && !newState.channel;
 
-    if (oldState.channel?.id === newState.channel?.id &&
-      (oldState.mute !== newState.mute || oldState.deaf !== newState.deaf)) {
-      activeVoiceUsers.set(user.id, {
-        channelId: newState.channel?.id || "",
-        lastUpdate: now,
-        isMuted: newState.mute || false,
-        isDeafened: newState.deaf || false,
-      });
-    }
-  },
-};
+        if (isJoiningChannel) await handleChannelJoin(channel);
+        if (isLeavingChannel) await handleChannelLeave(channel);
+    },
+} as Event<"voiceStateUpdate">;
 
-export default voiceStateUpdateEvent;
+async function handleChannelJoin(channel: VoiceBasedChannel) {
+    const existingChannel = await prisma.temporaryVoiceChannel.findFirst({
+        where: {
+            channelId: channel.id
+        }
+    });
+
+    if (!existingChannel) return;
+
+    const guild = channel.guild;
+    const voiceChannel = guild.channels.cache.get(existingChannel.channelId) as VoiceBasedChannel | undefined;
+
+    if (voiceChannel) cancelChannelDeletion(voiceChannel);
+}
+
+async function handleChannelLeave(channel: any) {
+    if (channel.members.size === 0) scheduleChannelDeletion(channel);
+}
