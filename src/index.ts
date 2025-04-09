@@ -1,35 +1,17 @@
 import { Client } from "discord.js";
+import { prisma } from "./prisma"
 import { config } from "./config";
-import { prisma } from "./prisma";
-import { loadCommands } from "./utils/commands.util";
-import { handleEvents } from "./utils/events.util";
+import { loadCommands } from "./util/command.util";
+import { handleEvents } from "./util/event.util";
 
 const client = new Client({ intents: config.intents });
 
 async function bootstrap() {
-    await prisma.$connect()
-        .catch(console.error)
-        .then(() => console.log('connected to the database'));
+    await prisma.$connect().then(() => console.log("[Database] Successfully connected to the database."));
+    await client.login(config.token).then(() => console.log("[Discord] Successfully logged in to the Discord API."));
 
-    client.on('ready', () => {
-        loadCommands(client);
-        handleEvents(client);
-    });
-
-    client.login(config.token);
+    loadCommands(client).then(() => console.log("[Commands] All commands have been successfully loaded."));
+    handleEvents(client).then(() => console.log("[Events] All event handlers have been successfully registered."));
 }
-
-async function handleGracefulShutdown() {
-    console.log("Shutting down gracefully...");
-
-    await prisma.$disconnect()
-        .then(() => console.log("Disconnected from the database"))
-        .catch(console.error)
-
-    process.exit(0)
-}
-
-process.on('SIGINT', handleGracefulShutdown);
-process.on('SIGTERM', handleGracefulShutdown);
 
 bootstrap().catch(console.error);

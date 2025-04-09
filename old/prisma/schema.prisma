@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String   @id @map("user_id")
+  username    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  memberships Membership[]
+  activities  VoiceActivity[]
+  progress    UserProgress?
+}
+
+model Guild {
+  id          String   @id @map("guild_id")
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     Membership[]
+  notifications Notification[]
+  settings    GuildSettings?
+  tempChannels TemporaryChannel[]
+  voiceActivities VoiceActivity[]
+  userProgress    UserProgress[]
+}
+
+model Membership {
+  id       String @id @default(cuid())
+  userId   String
+  guildId  String
+  role     String
+  joinedAt DateTime @default(now())
+
+  user     User   @relation(fields: [userId], references: [id])
+  guild    Guild  @relation(fields: [guildId], references: [id])
+
+  @@unique([userId, guildId])
+}
+
+model VoiceActivity {
+  id          String   @id @default(cuid())
+  userId      String @unique
+  guildId     String
+  channelId   String
+  lastUpdated DateTime @default(now())
+  isMuted     Boolean
+  isDeafened  Boolean
+
+  user        User   @relation(fields: [userId], references: [id])
+  guild       Guild  @relation(fields: [guildId], references: [id])
+}
+
+model GuildSettings {
+  id           String @id @default(cuid())
+  guildId      String @unique
+  infoChannel  String?
+  logChannel   String?
+
+  guild        Guild  @relation(fields: [guildId], references: [id])
+}
+
+model TemporaryChannel {
+  id          String @id @default(cuid())
+  guildId     String
+  channelId   String
+  ownerId     String
+  createdAt   DateTime @default(now())
+
+  guild       Guild  @relation(fields: [guildId], references: [id])
+}
+
+model UserProgress {
+  id          String @id @default(cuid())
+  userId      String @unique
+  guildId     String
+  level       Int    @default(1)
+  currentXp   Int    @default(0)
+  totalXp     Int    @default(0)
+  xpToNext    Int    @default(100)
+
+  user        User   @relation(fields: [userId], references: [id])
+  guild       Guild  @relation(fields: [guildId], references: [id])
+
+  @@unique([userId, guildId])
+}
+
+model Notification {
+  id          String @id @default(cuid())
+  guildId     String
+  content     String
+  category    NotificationCategory
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  guild       Guild  @relation(fields: [guildId], references: [id])
+}
+
+enum NotificationCategory {
+  INFO
+  WARNING
+  ERROR
+}

@@ -2,7 +2,7 @@ import { prisma } from "../prisma";
 import type { CommandInteraction, VoiceBasedChannel } from "discord.js";
 
 export async function getTemporaryChannel(interaction: CommandInteraction<"cached">): Promise<VoiceBasedChannel | null> {
-    const temporaryChannel = await prisma.temporaryVoiceChannel.findFirst({
+    const temporaryChannel = await prisma.temporaryChannel.findFirst({
         where: {
             guildId: interaction.guildId,
             ownerId: interaction.user.id
@@ -11,7 +11,7 @@ export async function getTemporaryChannel(interaction: CommandInteraction<"cache
 
     if (!temporaryChannel) {
         await interaction.reply({
-            flags: "Ephemeral",
+            ephemeral: true,
             embeds: [{
                 color: 0xff0000,
                 title: "Commande invalide",
@@ -24,9 +24,9 @@ export async function getTemporaryChannel(interaction: CommandInteraction<"cache
     const channel = interaction.guild.channels.cache.get(temporaryChannel.channelId) 
         ?? await interaction.guild.channels.fetch(temporaryChannel.channelId);
 
-    if (!channel || !channel.isTextBased() || !("permissionOverwrites" in channel)) {
+    if (!channel || !channel.isVoiceBased()) {
         await interaction.reply({
-            flags: "Ephemeral",
+            ephemeral: true,
             embeds: [{
                 color: 0xff0000,
                 title: "Erreur",
@@ -36,6 +36,5 @@ export async function getTemporaryChannel(interaction: CommandInteraction<"cache
         return null;
     }
 
-    if (!channel.isVoiceBased()) return null;
     return channel;
 }

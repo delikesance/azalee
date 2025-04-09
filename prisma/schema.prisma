@@ -1,46 +1,28 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
-model User {
-  userId  String @id
-  guildId String
-  xp      Int    @default(0)
-  level   Int    @default(1)
+model Guild {
+  guildID          String   @id
 
-  @@unique([userId, guildId])
+  infoChannelID    String?
+  logChannelID     String?
+  welcomeChannelID String?
+  welcomeMessageTemplate String?
+
+  members          Member[]
 }
 
-model VoiceSession {
-  userId     String   @id @map("user_id")
-  guildId    String   @map("guild_id")
-  channelId  String   @map("channel_id")
-  lastUpdate DateTime @map("last_update")
-  isMuted    Boolean  @map("is_muted")
-  isDeafened Boolean  @map("is_deafened")
-
-  @@unique([userId, guildId])
-  @@map("voice_sessions")
-}
-
-model GuildConfig {
-  guildId           String @id
-  customVoiceParent String
-}
-
-model TemporaryVoiceChannel {
-  guildId   String @id
-  channelId String
-  ownerId   String
+model Member {
+  memberID String @id
+  level    Int    @default(1)
+  xp       Int    @default(0)
+  totalXP  Int    @default(0)
+  guild    Guild  @relation(fields: [guildID], references: [guildID])
+  guildID  String
 }

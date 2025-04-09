@@ -36,8 +36,8 @@ export async function startChannelCleanupScheduler() {
                 monitoredChannels.delete(channelId);
             } else if (scheduledForDeletion <= now) {
                 await channel.delete();
-                await prisma.temporaryVoiceChannel.delete({
-                    where: { guildId: channel.guildId, channelId },
+                await prisma.temporaryChannel.delete({
+                    where: { id: channelId },
                 });
 
                 monitoredChannels.delete(channelId);
@@ -53,7 +53,7 @@ export async function startChannelCleanupScheduler() {
  */
 export async function handleTemporaryVoiceChannelCreation(interaction: ButtonInteraction<"cached">) {
     // Check if the user already has a temporary voice channel
-    const existingChannel = await prisma.temporaryVoiceChannel.findFirst({
+    const existingChannel = await prisma.temporaryChannel.findFirst({
         where: {
             guildId: interaction.guildId,
             ownerId: interaction.user.id,
@@ -68,7 +68,7 @@ export async function handleTemporaryVoiceChannelCreation(interaction: ButtonInt
             .setTimestamp()
             .setFooter({ text: "Veuillez utiliser votre salon existant." });
 
-        await interaction.reply({ embeds: [embed], flags: "Ephemeral" });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
     }
 
@@ -93,7 +93,7 @@ export async function handleTemporaryVoiceChannelCreation(interaction: ButtonInt
     scheduleChannelDeletion(channel);
 
     // Save the channel to the database
-    await prisma.temporaryVoiceChannel.create({
+    await prisma.temporaryChannel.create({
         data: {
             guildId: interaction.guildId,
             channelId: channel.id,
@@ -109,5 +109,5 @@ export async function handleTemporaryVoiceChannelCreation(interaction: ButtonInt
         .setTimestamp()
         .setFooter({ text: "Amusez-vous bien !" });
 
-    await interaction.reply({ embeds: [embed], flags: "Ephemeral" });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
 }

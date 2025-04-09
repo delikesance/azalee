@@ -18,11 +18,13 @@ export default {
 
         if (isJoiningChannel) await handleChannelJoin(channel);
         if (isLeavingChannel) await handleChannelLeave(channel);
+
+        //TODO: Implement XP logic for voice chat
     },
 } as Event<"voiceStateUpdate">;
 
 async function handleChannelJoin(channel: VoiceBasedChannel) {
-    const existingChannel = await prisma.temporaryVoiceChannel.findFirst({
+    const existingChannel = await prisma.temporaryChannel.findFirst({
         where: {
             channelId: channel.id
         }
@@ -30,12 +32,9 @@ async function handleChannelJoin(channel: VoiceBasedChannel) {
 
     if (!existingChannel) return;
 
-    const guild = channel.guild;
-    const voiceChannel = guild.channels.cache.get(existingChannel.channelId) as VoiceBasedChannel | undefined;
-
-    if (voiceChannel) cancelChannelDeletion(voiceChannel);
+    cancelChannelDeletion(channel);
 }
 
-async function handleChannelLeave(channel: any) {
+async function handleChannelLeave(channel: VoiceBasedChannel) {
     if (channel.members.size === 0) scheduleChannelDeletion(channel);
 }
