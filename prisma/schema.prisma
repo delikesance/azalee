@@ -8,14 +8,14 @@ datasource db {
 }
 
 model Guild {
-  guildID          String   @id
+  guildID String @id
 
-  infoChannelID    String?
-  logChannelID     String?
-  welcomeChannelID String?
+  infoChannelID          String?
+  logChannelID           String?
+  welcomeChannelID       String?
   welcomeMessageTemplate String?
 
-  members          Member[]
+  members Member[]
 }
 
 model Member {
@@ -25,4 +25,15 @@ model Member {
   totalXP  Int    @default(0)
   guild    Guild  @relation(fields: [guildID], references: [guildID])
   guildID  String
+
+  @@index([guildID, memberID])
+}
+
+model VoiceSession {
+  id        String @id @default(cuid())
+  guildID   String
+  memberID  String
+  startedAt DateTime @default(now())
+
+  @@unique([guildID, memberID])
 }

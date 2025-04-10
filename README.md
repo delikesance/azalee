@@ -1,5 +1,82 @@
 # Azalee Discord Bot TODO List
 
+src/
+├── commands/               # Global commands
+│   ├── admin/              # Commands for admins
+│   │   ├── config.command.ts
+│   │   ├── setup.command.ts
+│   │   └── clear.command.ts
+│   ├── user/               # Commands for regular users
+│   │   ├── ping.command.ts
+│   │   └── private.command.ts
+│   └── index.ts            # Command registration
+├── events/                 # Global event listeners
+│   ├── guild/
+│   │   ├── guildMemberAdd.event.ts
+│   │   ├── ready.event.ts
+│   ├── interaction/
+│   │   ├── interactionCreate.event.ts
+│   ├── voice/
+│   │   ├── voiceStateUpdate.event.ts
+│   ├── message/
+│   │   ├── messageCreate.event.ts
+│   └── index.ts            # Event registration
+├── features/               # Self-contained features
+│   ├── xpSystem/           # XP System feature
+│   │   ├── commands/       # Commands for XP System
+│   │   │   ├── addXP.command.ts
+│   │   │   ├── leaderboard.command.ts
+│   │   ├── events/         # Event listeners for XP System
+│   │   │   ├── messageActivity.event.ts
+│   │   │   ├── voiceActivity.event.ts
+│   │   ├── services/       # Core logic for XP System
+│   │   │   ├── xpCalculator.ts
+│   │   │   ├── xpManager.ts
+│   │   ├── utils/          # Utility functions for XP System
+│   │   │   ├── xpUtils.ts
+│   │   └── index.ts        # Entry point for XP System
+│   ├── temporaryVoiceChannel/ # Temporary Voice Channel feature
+│   │   ├── commands/
+│   │   │   ├── createChannel.command.ts
+│   │   │   ├── deleteChannel.command.ts
+│   │   ├── events/
+│   │   │   ├── voiceStateUpdate.event.ts
+│   │   ├── services/
+│   │   │   ├── channelManager.ts
+│   │   ├── utils/
+│   │   │   ├── channelUtils.ts
+│   │   └── index.ts
+│   ├── welcoming/          # Welcoming feature
+│   │   ├── events/
+│   │   │   ├── guildMemberAdd.event.ts
+│   │   ├── services/
+│   │   │   ├── welcomeMessage.ts
+│   │   │   ├── welcomeChannel.ts
+│   │   └── index.ts
+│   └── notifications/      # Notifications feature
+│       ├── services/
+│       │   ├── notificationWorker.ts
+│       ├── utils/
+│       │   ├── notificationUtils.ts
+│       └── index.ts
+├── prisma/                 # Prisma database schema and client
+│   ├── schema.prisma
+│   ├── migrations/
+│   └── prisma.ts
+├── types/                  # Type definitions
+│   ├── command.type.ts
+│   ├── event.type.ts
+│   └── database.types.ts
+├── utils/                  # Shared utilities
+│   ├── embed.util.ts
+│   ├── event.util.ts
+│   └── command.util.ts
+├── config/                 # Configuration files
+│   ├── config.ts
+│   └── intents.ts
+├── index.ts                # Main entry point
+└── README.md               # Documentation
+
 This document outlines the features and tasks required to implement the Azalee Discord bot. The bot's primary goal is to provide custom voice channel management, an XP system, and a welcoming system. Below is a detailed breakdown of the tasks:
 
 ---
