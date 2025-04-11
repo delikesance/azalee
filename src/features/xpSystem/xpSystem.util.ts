@@ -1,82 +1,112 @@
-import type { Member, Prisma } from "@prisma/client";
-import { TextChannel, type GuildMember, type User } from "discord.js";
+import type { Member, Prisma, VoiceSession } from "@prisma/client";
+import { type GuildMember } from "discord.js";
 import { prisma } from "src/prisma";
-import { createEmbed } from "utils/embed.util";
 
-export async function handleLevelUp(memberData: Prisma.MemberGetPayload<{ select: { level: true, xp: true } }>, guildMember: GuildMember): Promise<Member | null> {
-    const xpThreshold = calculateXpThreshold(memberData)
+export async function handleLevelUp(memberData: Member) {
+    const currentXp = memberData.xp;
+    const threshold = calculateXpThreshold(memberData.level);
 
-    if (memberData.xp < xpThreshold) return null;
+    // Calcul sécurisé du levelGain
+    const levelGain = Math.floor(
+        Math.log1p(currentXp / threshold) / Math.log(1.5)
+    );
 
-    const updatedMember = await prisma.member.update({
+    // Prévention des valeurs négatives
+    const xpDecrement = threshold * (Math.pow(1.5, levelGain) - 1);
+    const newXp = Math.max(0, currentXp - xpDecrement);
+
+    return prisma.member.update({
         where: {
-            memberID: guildMember.id,
-            guildID: guildMember.guild.id,
+            guildID_memberID: {
+                memberID: memberData.memberID,
+                guildID: memberData.guildID
+            }
         },
         data: {
-            level: { increment: 1 },
-            xp: { decrement: xpThreshold },
-        },
-        include: {
-            guild: {
-                select: { infoChannelID: true }
-            }
+            level: { increment: levelGain },
+            xp: newXp,
+            totalXP: { increment: currentXp }
         }
     });
+}
 
-    if (!updatedMember.guild.infoChannelID) return updatedMember;
 
-    // Fetch the notification channel and send a level-up message
-    const notificationChannel = await guildMember.client.channels.fetch(updatedMember.guild.infoChannelID);
+export function calculateXpThreshold(level: number) {
+    return Math.max(100, Math.floor(100 * 1.5 ** (level - 1)));
+}
 
-    if (notificationChannel?.isTextBased() && notificationChannel instanceof TextChannel) {
-        const embed = createEmbed().setDescription(`<@${guildMember.id}> est monté d'un niveau! Il est désormais niveau ${updatedMember.level}.`);
-        notificationChannel.send({ embeds: [embed] });
+export async function calculateVoiceXp(memberID: string, guildID: string, useReturn: true): Promise<[Member, VoiceSession | undefined]>;
+export async function calculateVoiceXp(memberID: string, guildID: string, useReturn?: false): Promise<void>;
+export async function calculateVoiceXp(memberID: string, guildID: string, useReturn: boolean = false): Promise<[Member, VoiceSession | undefined] | void> {
+    const session = await prisma.voiceSession.findUnique({
+        where: { guildID_memberID: { guildID, memberID } }
+    });
+
+    if (!session) {
+        if (useReturn) {
+            const member = await prisma.member.findUnique({
+                where: { guildID_memberID: { guildID, memberID } }
+            });
+
+            if (!member) throw new Error("Member not found");
+            return [member, undefined];
+        }
+
+        return;
     }
 
-    return updatedMember;
-}
+    // Calculate duration in minutes
+    const now = Date.now();
+    const durationMinutes = Math.floor((now - session.startedAt.getTime()) / 60_000);
 
-export function calculateXpThreshold(memberData: Prisma.MemberGetPayload<{ select: { level: true, xp: true } }>) {
-    return Math.floor(100 * 1.5 ** (memberData.level - 1));
-}
+    // Earn 10 XP per minute
+    const earnedXP = durationMinutes * 10;
 
-export async function updateXp(memberID: string, guildID: string, xp: number = 10) {
-    return prisma.member.upsert({
-        where: { guildID, memberID },
+    if (useReturn) {
+        return prisma.$transaction([
+            prisma.member.upsert({
+                where: { guildID_memberID: { guildID, memberID } },
+                create: { memberID, guildID, xp: earnedXP, totalXP: earnedXP },
+                update: { xp: { increment: earnedXP }, totalXP: { increment: earnedXP } }
+            }),
+            earnedXP > 0 ? prisma.voiceSession.update({
+                where: { guildID_memberID: { guildID, memberID } },
+                data: { startedAt: new Date() }
+            }) : prisma.voiceSession.update({
+                where: { guildID_memberID: { guildID, memberID } },
+                data: {}
+            })
+        ]);
+    }
 
-        create: {
-            memberID,
-            guildID,
-            xp: xp,
-            totalXP: xp
-        },
-
-        update: {
-            xp: { increment: xp },
-            totalXP: { increment: xp }
-        }
-    })
-}
-
-export async function calculateVoiceXp(member: GuildMember, guildID: string, sessionStart: number) {
-    const now = Date.now()
-    const timePassed = now - sessionStart
-    const earnedXP = (timePassed / 1000) * 10
-
-    const updatedMember = await updateXp(member.id, guildID, earnedXP)
-    return handleLevelUp({ level: updatedMember.level, xp: updatedMember.xp }, member)
+    await prisma.$transaction([
+        prisma.member.upsert({
+            where: { guildID_memberID: { guildID, memberID } },
+            create: { memberID, guildID, xp: earnedXP, totalXP: earnedXP },
+            update: { xp: { increment: earnedXP }, totalXP: { increment: earnedXP } }
+        }),
+        prisma.voiceSession.update({
+            where: { guildID_memberID: { guildID, memberID } },
+            data: { startedAt: new Date() }
+        })
+    ]);
 }
 
 export function createVoiceSession(member: GuildMember) {
-    return prisma.voiceSession.create({
-        data: { guildID: member.guild.id, memberID: member.id }
-    })
+    return prisma.voiceSession.upsert({
+        where: {
+            guildID_memberID: {
+                guildID: member.guild.id,
+                memberID: member.id
+            }
+        },
+        create: { guildID: member.guild.id, memberID: member.id, startedAt: new Date() },
+        update: { startedAt: new Date() }
+    });
 }
 
 export function getVoiceSession(memberID: string, guildID: string) {
     return prisma.voiceSession.findUnique({
-        where: { guildID_memberID: { guildID, memberID } },
-        select: { startedAt: true },
-    })
+        where: { guildID_memberID: { guildID, memberID } }
+    });
 }

@@ -1,22 +1,15 @@
 import type { Event } from "types/event.type";
-import { calculateVoiceXp, createVoiceSession, getVoiceSession } from "../xpSystem.util";
-import { prisma } from "src/prisma";
-
+import { calculateVoiceXp, createVoiceSession } from "../xpSystem.util";
 
 export const xpSystemVoiceStateUpdate = {
     name: "voiceStateUpdate",
     async execute(oldState, newState) {
-        const member = newState.member ?? oldState.member
-        if (!member) return
+        const member = newState.member ?? oldState.member;
+        if (!member || member.user.bot) return;
 
-        // joining voice channel
-        if (!oldState.channel && newState.channel)
-            await createVoiceSession(member)
-
-        // leaving voice channel
-        if (oldState.channel && !newState.channel) {
-            const voiceSession = await getVoiceSession(member.id, member.guild.id)
-            if (voiceSession) return calculateVoiceXp(member, member.guild.id, voiceSession.startedAt.getTime())
+        if (oldState.channel?.id !== newState.channel?.id) {
+            await calculateVoiceXp(member.id, member.guild.id, false);
+            await createVoiceSession(member);
         }
     },
-} as Event<"voiceStateUpdate">
+} as Event<"voiceStateUpdate">;

@@ -19,18 +19,19 @@ model Guild {
 }
 
 model Member {
-  memberID String @id
-  level    Int    @default(1)
-  xp       Int    @default(0)
-  totalXP  Int    @default(0)
-  guild    Guild  @relation(fields: [guildID], references: [guildID])
-  guildID  String
+  memberID     String
+  guildID      String
+  xp           Int @default(0)
+  totalXP      Int @default(0)
+  level        Int @default(1)
+  Guild        Guild?  @relation(fields: [guildGuildID], references: [guildID])
+  guildGuildID String?
 
-  @@index([guildID, memberID])
+  @@id([guildID, memberID])
 }
 
 model VoiceSession {
-  id        String @id @default(cuid())
+  id        String   @id @default(cuid())
   guildID   String
   memberID  String
   startedAt DateTime @default(now())

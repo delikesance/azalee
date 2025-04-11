@@ -77,7 +77,7 @@ async function sendLevelResponse({ interaction, level, xp, xpThreshold, target }
     const imageBuffer = await createLevelImage(level, xp, xpThreshold, target.displayAvatarURL({ extension: "png", size: 4096 }))
     const attachment = new AttachmentBuilder(imageBuffer).setName("card.png")
 
-    interaction.reply({
+    interaction.editReply({
         content: target.toString(),
         embeds: [createEmbed().setImage(`attachment://${attachment.name}`)],
         files: [attachment]
@@ -85,28 +85,34 @@ async function sendLevelResponse({ interaction, level, xp, xpThreshold, target }
 }
 
 export const LevelCommand = {
-    async execute(interaction) {
-        const target = interaction.options.getMember("target") ?? interaction.member;
-        if (!(target instanceof GuildMember)) throw new Error("Les informations sur le membre sont indisponibles. Cette commande doit être utilisée dans un serveur.");
+    async execute(interaction: ChatInputCommandInteraction) {
+        try {
+            await interaction.deferReply()
 
-        const { id: memberID } = target;
-        const { id: guildID } = interaction.guild;
+            const target = interaction.options.getMember("target") ?? interaction.member
+            if (!(target instanceof GuildMember)) throw new Error("Invalid member context")
+            if (target.user.bot) throw new Error("Les bots n'ont pas de niveau")
 
-        const initialRecord = await prisma.member.findUnique({
-            where: { memberID, guildID },
-            select: { level: true, xp: true }
-        });
+            const { id: memberID } = target;
+            const { id: guildID } = interaction.guild!;
 
-        const voiceSession = await getVoiceSession(memberID, guildID)
-        if (voiceSession) await calculateVoiceXp(target, target.guild.id, voiceSession.startedAt.getTime())
+            const [member] = await calculateVoiceXp(memberID, guildID, true)
+            if (!member) return sendLevelResponse({ interaction, level: 1, xp: 0, xpThreshold: calculateXpThreshold(1), target })
 
-        if (!initialRecord)
-            return sendLevelResponse({ interaction, level: 1, xp: 0, xpThreshold: 100, target });
-    
-        const updatedRecord = await handleLevelUp(initialRecord, target) ?? initialRecord;
-        const xpThreshold = calculateXpThreshold(updatedRecord);
+            // Handle level up logic
+            const updatedRecord = await handleLevelUp(member) || member;
+            const xpThreshold = Math.max(calculateXpThreshold(member.level), 100);
 
-        return sendLevelResponse({ interaction, level: updatedRecord.level, xp: updatedRecord.xp, xpThreshold, target });
+            return sendLevelResponse({
+                interaction,
+                level: updatedRecord.level,
+                xp: updatedRecord.xp,
+                xpThreshold,
+                target
+            });
+        } catch(error) {
+            interaction.editReply({content: `${error}`})
+        }
     },
 
     data: new SlashCommandBuilder()

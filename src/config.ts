@@ -11,3 +11,12 @@ export const config = {
         IntentsBitField.Flags.GuildMembers
     ],
 }
+
+export const XP_SYSTEM_CONFIG = {
+    XP_PER_MINUTE: 10,
+    MESSAGE_COOLDOWN_MS: 60000,
+    VOICE_SESSION_CLEANUP_INTERVAL_MS: 60000,
+    XP_THRESHOLD_BASE: 100,
+    XP_THRESHOLD_MULTIPLIER: 1.5,
+    TOP_LEADERBOARD_LIMIT: 5,
+};
