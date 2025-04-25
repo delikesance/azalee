@@ -7,7 +7,7 @@
 	languages.javascript.bun.enable = true;
 
 	scripts.build.exec = ''
-		bun build ./src/index.ts --outdir ./build/
+		bun build --target bun ./src/index.ts --outdir ./build/
 	'';
 
 	scripts.run.exec = ''
