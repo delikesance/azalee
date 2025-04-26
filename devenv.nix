@@ -5,12 +5,13 @@
 
 	languages.javascript.enable = true;
 	languages.javascript.bun.enable = true;
+  dotenv.enable = true;
 
 	scripts.build.exec = ''
-		bws run --project-id 0f626c5f-5af3-478d-9545-b2ca00baf4eb -- bun build --target bun ./src/index.ts --outdir ./build/
+		bws run --project-id $BWS_PROJECT_ID -- bun build --target bun ./src/index.ts --outdir ./build/
 	'';
 
 	scripts.run.exec = ''
-		bws run --project-id 0f626c5f-5af3-478d-9545-b2ca00baf4eb -- bun run ./src/index.ts
+		bws run --project-id $BWS_PROJECT_ID -- bun run ./src/index.ts
 	'';
 }

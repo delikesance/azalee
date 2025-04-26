@@ -154,7 +154,7 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 * @param oldState - The old voice state
 * @param newState - The new voice state
 */
-async function handle_channel_switch(member: GuildMember, oldState: VoiceState, newState: VoiceState) {
+async function handle_channel_switch(member: GuildMember, oldState: VoiceState, _newState: VoiceState) {
   const userId = channels_users.get(oldState.channelId!)
   if (!userId || !oldState.channelId) return
 
