@@ -1,6 +1,7 @@
 import { ChannelType, ChatInputCommandInteraction, Client, Collection, ConnectionService, Guild, GuildMember, PermissionsBitField, SlashCommandBuilder, VoiceState, type ApplicationCommandDataResolvable, type OverwriteResolvable, type VoiceBasedChannel } from "discord.js"
 import { PrivateCommand } from "./commands/private"
 import { InviteCommand } from "./commands/invite"
+import { get_channel } from "./utils/channelUtils"
 
 const DISCORD_TOKEN = Bun.env.DISCORD_TOKEN
 const HUB_CHANNEL_ID = Bun.env.HUB_CHANNEL_ID
@@ -34,23 +35,13 @@ client.on("interactionCreate", (interaction) => {
   command.execute(interaction)
 })
 
-/**
-* Fetches channel by its ID from the guild
-* @param guild - The guild to search within
-* @param channelId - The ID of the channel to fetch
-* @returns Then channel if found, otherwise null
-*/
-async function get_channel(guild: Guild, channelId: string) {
-  return guild.channels.cache.get(channelId) ?? await guild.channels.fetch(channelId).catch(() => null)
-}
-
 client.on("ready", (client) => {
   console.log(`Connected as ${client.user.username}`)
 })
 
 // Collection to map user IDs to channel IDs and vice versa
-export const users_channels = new Collection<string, string>; // channelId -> userId
-export const channels_users = new Collection<string, string>; // userId -> channelId
+export const users_channels = new Map<string, string>; // channelId -> userId
+export const channels_users = new Map<string, string>; // userId -> channelId
 export const channels_guests = new Map<string, string[]>()
 
 client.on("voiceStateUpdate", async (oldState, newState) => {
