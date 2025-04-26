@@ -1,4 +1,6 @@
-import { ChannelType, ChatInputCommandInteraction, Client, Collection, ConnectionService, Guild, GuildMember, PermissionsBitField, SlashCommandBuilder, VoiceState, type OverwriteResolvable, type VoiceBasedChannel } from "discord.js"
+import { ChannelType, ChatInputCommandInteraction, Client, Collection, ConnectionService, Guild, GuildMember, PermissionsBitField, SlashCommandBuilder, VoiceState, type ApplicationCommandDataResolvable, type OverwriteResolvable, type VoiceBasedChannel } from "discord.js"
+import { PrivateCommand } from "./commands/private"
+import { InviteCommand } from "./commands/invite"
 
 const DISCORD_TOKEN = Bun.env.DISCORD_TOKEN
 const HUB_CHANNEL_ID = Bun.env.HUB_CHANNEL_ID
@@ -10,113 +12,26 @@ client.login(DISCORD_TOKEN)
 const dev_guild = client.guilds.cache.get("1318391877103255572") || await client.guilds.fetch("1318391877103255572")
 if (!dev_guild) process.exit(1)
 
-function is_private(channel: VoiceBasedChannel): boolean {
-  const permissions = channel.permissionsFor(channel.guildId)
-
-  if (!permissions) return false
-  if (permissions.has("Connect")) return false
-  else return true
-}
-
-const channels_guests = new Map<string, string[]>()
-
-async function handle_private_command(interaction: ChatInputCommandInteraction) {
-  const member = interaction.member as GuildMember
-  const user_voice_channel = member.voice.channel
-
-  if (!user_voice_channel) {
-    interaction.reply({ content: "You're not in a voice channel", flags: "Ephemeral" })
-    return
-  }
-
-  if (!channels_guests.has(user_voice_channel.id)) channels_guests.set(user_voice_channel.id, [])
-  const channel_guests = channels_guests.get(user_voice_channel.id)!
-
-  if (users_channels.get(member.id) !== user_voice_channel.id) {
-    interaction.reply({ content: "This channel is not yours", flags: "Ephemeral" })
-    return
-  }
-
-  if (is_private(user_voice_channel)) {
-    user_voice_channel.permissionOverwrites.set([])
-    interaction.reply({ content: "You channel is now public", flags: "Ephemeral" })
-
-    return
-  }
-
-  user_voice_channel.members.forEach(member => {
-    const channel_owner = channels_users.get(user_voice_channel.id)
-    if (!channel_guests.includes(member.id) && channel_owner !== member.id)
-      member.voice.disconnect()
-  })
-
-  if (!channels_guests.has(user_voice_channel.id)) channels_guests.set(user_voice_channel.id, [])
-  const permissions: OverwriteResolvable[] = channels_guests.get(user_voice_channel.id)!.map(guest => ({ id: guest, allow: ["Connect", "ViewChannel"] }))
-  user_voice_channel.permissionOverwrites.set([
-    ...permissions,
-    { id: member.id, allow: ["Connect", "ViewChannel"] },
-    { id: member.guild.id, deny: ["Connect", "ViewChannel"] }
-  ])
-
-  interaction.reply({ content: "You channel is now private", flags: "Ephemeral" })
-}
-
-async function handle_invite_command(interaction: ChatInputCommandInteraction) {
-  const member = interaction.member as GuildMember
-  const user_voice_channel = member.voice.channel
-
-  if (!user_voice_channel) {
-    interaction.reply({ content: "You're not in a voice channel", flags: "Ephemeral" })
-    return
-  }
-
-  if (users_channels.get(member.id) !== user_voice_channel.id) {
-    interaction.reply({ content: "This channel is not yours", flags: "Ephemeral" })
-    return
-  }
-
-  const target = interaction.options.getUser("target")
-
-  if (!target) {
-    interaction.reply({ content: "The target is not a valid one", flags: "Ephemeral" })
-    return
-  }
-
-  if (is_private(user_voice_channel)) {
-    user_voice_channel.permissionOverwrites.edit(target.id, {
-      Connect: true,
-      ViewChannel: true
-    })
-  }
-
-  if (!channels_guests.has(user_voice_channel.id)) channels_guests.set(user_voice_channel.id, [])
-
-  const channel_guests = channels_guests.get(user_voice_channel.id)!
-  if (!channel_guests.includes(target.id)) channel_guests.push(target.id)
-
-  console.log(channels_guests)
-
-  const url = `https://discord.com/channels/${user_voice_channel.guildId}/${user_voice_channel.id}`
-  target.send(`${member.user.username} invited you to his private voice channel : ${url}`)
-
-  interaction.reply("invitation sent")
-}
-
 client.on("ready", () => {
-  dev_guild.commands.set([
-    new SlashCommandBuilder().setName("private")
-      .setDescription("define if a channel is public or private"),
-
-    new SlashCommandBuilder().setName("invite")
-      .setDescription("invite someone to your private channel")
-      .addUserOption(input => input.setName("target").setRequired(true).setDescription("the user you want to invite"))
-  ])
+  dev_guild.commands.set(commands.values().map(a => a.data).toArray())
 })
+
+export type ApplicationCommand = { data: ApplicationCommandDataResolvable, execute: (interaction: ChatInputCommandInteraction) => Promise<void> }
+
+const commands = new Map<string, ApplicationCommand>()
+commands.set("private", PrivateCommand)
+commands.set("invite", InviteCommand)
 
 client.on("interactionCreate", (interaction) => {
   if (!interaction.isChatInputCommand()) return
-  if (interaction.commandName === "private") handle_private_command(interaction)
-  if (interaction.commandName === "invite") handle_invite_command(interaction)
+
+  const command = commands.get(interaction.commandName)
+  if (!command) {
+    interaction.reply({ content: "command not found", flags: "Ephemeral" })
+    return
+  }
+
+  command.execute(interaction)
 })
 
 /**
@@ -134,8 +49,9 @@ client.on("ready", (client) => {
 })
 
 // Collection to map user IDs to channel IDs and vice versa
-const users_channels = new Collection<string, string>; // channelId -> userId
-const channels_users = new Collection<string, string>; // userId -> channelId
+export const users_channels = new Collection<string, string>; // channelId -> userId
+export const channels_users = new Collection<string, string>; // userId -> channelId
+export const channels_guests = new Map<string, string[]>()
 
 client.on("voiceStateUpdate", async (oldState, newState) => {
   const member = newState.member ?? oldState.member
